@@ -39,6 +39,20 @@ func TestTypedRecords(t *testing.T) {
 		t.Fatalf("findRecordWithValue(Address) = %+v", f)
 	}
 
+	// Records read back from dynv6 come out typed, so a caller that looks for
+	// libdns.Address (caddy-dynamicdns does) finds the existing A record.
+	got := (&record{Name: "www", Type: "A", Data: "192.0.2.1", TTL: time.Minute}).toLibdnsRecord()
+	if ad, ok := got.(libdns.Address); !ok || ad.IP != netip.MustParseAddr("192.0.2.1") || ad.Name != "www" {
+		t.Fatalf("toLibdnsRecord(A) = %#v, want libdns.Address", got)
+	}
+	if _, ok := (&record{Name: "_acme-challenge", Type: "TXT", Data: "token"}).toLibdnsRecord().(libdns.TXT); !ok {
+		t.Fatal("toLibdnsRecord(TXT) is not libdns.TXT")
+	}
+	// Unparseable data falls back to libdns.RR instead of being dropped.
+	if bad, ok := (&record{Name: "x", Type: "A", Data: "not-an-ip"}).toLibdnsRecord().(libdns.RR); !ok || bad.Data != "not-an-ip" {
+		t.Fatalf("toLibdnsRecord(bad A) = %#v, want libdns.RR", bad)
+	}
+
 	var nilRec libdns.Record
 	if _, err := fromLibdnsRecord("example.dynv6.net", &nilRec); err == nil {
 		t.Fatal("fromLibdnsRecord(nil) gave no error")

@@ -31,14 +31,21 @@ func getDataFromRecord(r libdns.Record) string {
 	return r.RR().Data
 }
 
-// Converts a intern dynv6-Record to libdns.RR
+// Converts a intern dynv6-Record to a libdns.Record. Returns the typed record
+// (libdns.Address for A/AAAA, libdns.TXT, ...) as libdns v1 expects from
+// providers, so callers that look for e.g. libdns.Address find it; falls back
+// to libdns.RR when the record cannot be parsed.
 func (r *record) toLibdnsRecord() libdns.Record {
-	return libdns.RR{
+	rr := libdns.RR{
 		Name: r.Name,
 		Type: r.Type,
 		Data: r.Data,
 		TTL:  r.TTL,
 	}
+	if parsed, err := rr.Parse(); err == nil {
+		return parsed
+	}
+	return rr
 }
 
 // Creates a dynv6-Record from the libdns.Record
